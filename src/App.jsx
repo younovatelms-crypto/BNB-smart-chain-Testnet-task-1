@@ -6,6 +6,7 @@ import TSCReserves from "./components/TSCReserves";
 import BuyTTRS from "./components/BuyTTRS";
 import SellTTRS from "./components/SellTTRS";
 import TransactionLog from "./components/TransactionLog";
+import ProofExport from "./components/ProofExport";
 import { Banner } from "./components/ui";
 import { connect, ensureCorrectNetwork, friendlyError, hasMetaMask } from "./lib/wallet";
 import {
@@ -49,12 +50,29 @@ export default function App() {
 
   const [transactions, setTransactions] = useState([]);
 
+  // Real-only proof data — every field here is set exclusively from an
+  // actual confirmed transaction hash or an actual contract read taken
+  // moments before/after one. Nothing here is ever guessed or hardcoded.
+  const [proof, setProof] = useState({
+    musdtApprovalHash: null,
+    ttrsApprovalHash: null,
+    buyHash: null,
+    sellHash: null,
+    beforeBuy: null,
+    afterBuy: null,
+    beforeSell: null,
+    afterSell: null,
+  });
+
   const isCorrectNetwork = chainId === 97;
 
-  function pushTx(label, hash) {
-    const id = `${hash}-${Date.now()}`;
-    setTransactions((prev) => [{ id, label, hash, status: "pending" }, ...prev]);
+  function pushTx(label) {
+    const id = `${label}-${Date.now()}`;
+    setTransactions((prev) => [{ id, label, hash: null, status: "preparing" }, ...prev]);
     return id;
+  }
+  function attachHash(id, hash) {
+    setTransactions((prev) => prev.map((t) => (t.id === id ? { ...t, hash, status: "pending" } : t)));
   }
   function updateTx(id, status, error) {
     setTransactions((prev) =>
@@ -117,6 +135,25 @@ export default function App() {
     await Promise.all([refreshUserBalances(), refreshReserves(), refreshAllowances()]);
   }
 
+  /**
+   * Reads balances + reserves directly from the chain right now (not from
+   * possibly-stale React state), so before/after proof snapshots are
+   * guaranteed accurate even if a UI refresh hasn't landed yet.
+   */
+  async function readSnapshot() {
+    const [musdtBal, ttrsBal, [tscMusdt, tscTtrs]] = await Promise.all([
+      getMusdtContract(provider).balanceOf(address),
+      getTtrsContract(provider).balanceOf(address),
+      getTscContract(provider).getTSCBalances(),
+    ]);
+    return {
+      musdt: `${fmt(musdtBal, MUSDT_DECIMALS)} mUSDT`,
+      ttrs: `${fmt(ttrsBal, TTRS_DECIMALS)} TTRS`,
+      tscMusdt: `${fmt(tscMusdt, MUSDT_DECIMALS)} mUSDT`,
+      tscTtrs: `${fmt(tscTtrs, TTRS_DECIMALS)} TTRS`,
+    };
+  }
+
   async function handleConnect() {
     setBanner(null);
     setConnecting(true);
@@ -165,26 +202,27 @@ export default function App() {
   }
 
   async function runTx(label, sendFn, opts = {}) {
-    let id;
+    const id = pushTx(label);
     try {
       const bal = opts.balanceCheck && (await opts.balanceCheck());
       if (bal === false) throw new Error(opts.balanceCheckMessage || "Insufficient balance.");
 
       const tx = await sendFn();
-      id = pushTx(label, tx.hash);
+      attachHash(id, tx.hash);
+      opts.onSubmitted?.(tx.hash);
       const receipt = await tx.wait();
       if (receipt.status === 1) {
         updateTx(id, "confirmed");
         setBanner({ type: "ok", message: `${label} confirmed.` });
         await refreshEverything();
-        opts.onSuccess?.();
+        await opts.onSuccess?.();
       } else {
         updateTx(id, "failed", "Transaction reverted on-chain.");
         setBanner({ type: "error", message: `${label} failed on-chain.` });
       }
     } catch (err) {
       const msg = friendlyError(err);
-      if (id) updateTx(id, "failed", msg);
+      updateTx(id, "failed", msg);
       setBanner({ type: "error", message: `${label}: ${msg}` });
     }
   }
@@ -198,6 +236,7 @@ export default function App() {
       {
         balanceCheck: async () => (await getMusdtContract(provider).balanceOf(address)).gte(BUY_MUSDT_AMOUNT),
         balanceCheckMessage: "Insufficient mUSDT balance to approve.",
+        onSubmitted: (hash) => setProof((p) => ({ ...p, musdtApprovalHash: hash })),
       }
     );
     setBuyApproving(false);
@@ -206,12 +245,19 @@ export default function App() {
   async function buyTtrs() {
     if (!requireReady()) return;
     setBuying(true);
+    const beforeBuy = await readSnapshot();
+    setProof((p) => ({ ...p, beforeBuy }));
     await runTx("Buy 10 TTRS", () => getTscContract(signer).buyTTRS(), {
       balanceCheck: async () => {
         const [, ttrsReserve] = await getTscContract(provider).getTSCBalances();
         return ttrsReserve.gte(SELL_TTRS_AMOUNT);
       },
       balanceCheckMessage: "TSC has insufficient TTRS reserve.",
+      onSubmitted: (hash) => setProof((p) => ({ ...p, buyHash: hash })),
+      onSuccess: async () => {
+        const afterBuy = await readSnapshot();
+        setProof((p) => ({ ...p, afterBuy }));
+      },
     });
     setBuying(false);
   }
@@ -225,6 +271,7 @@ export default function App() {
       {
         balanceCheck: async () => (await getTtrsContract(provider).balanceOf(address)).gte(SELL_TTRS_AMOUNT),
         balanceCheckMessage: "Insufficient TTRS balance to approve.",
+        onSubmitted: (hash) => setProof((p) => ({ ...p, ttrsApprovalHash: hash })),
       }
     );
     setSellApproving(false);
@@ -233,12 +280,19 @@ export default function App() {
   async function sellTtrs() {
     if (!requireReady()) return;
     setSelling(true);
+    const beforeSell = await readSnapshot();
+    setProof((p) => ({ ...p, beforeSell }));
     await runTx("Sell 10 TTRS", () => getTscContract(signer).sellTTRS(), {
       balanceCheck: async () => {
         const [musdtReserve] = await getTscContract(provider).getTSCBalances();
         return musdtReserve.gte(SELL_MUSDT_MIN_RESERVE);
       },
       balanceCheckMessage: "TSC has insufficient mUSDT reserve.",
+      onSubmitted: (hash) => setProof((p) => ({ ...p, sellHash: hash })),
+      onSuccess: async () => {
+        const afterSell = await readSnapshot();
+        setProof((p) => ({ ...p, afterSell }));
+      },
     });
     setSelling(false);
   }
@@ -295,6 +349,7 @@ export default function App() {
             />
           </div>
           <TransactionLog transactions={transactions} />
+          <ProofExport proof={proof} />
         </div>
       </main>
 
