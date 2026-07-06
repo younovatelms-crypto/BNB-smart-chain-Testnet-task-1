@@ -165,21 +165,28 @@ render here automatically on GitHub._
 
 ## Transaction proof
 
+**This section is generated automatically by the dashboard itself** — click
+through Approve mUSDT → Buy → Approve TTRS → Sell in a live session, and a
+**"README Proof Block"** panel appears in the UI with a ready-to-paste
+markdown table (real hashes + real before/after balances/reserves, each
+captured directly from the chain at the moment it happened) and a **Copy**
+button. Paste its output below, replacing this line.
+
 | Transaction | Hash | Status |
 |---|---|---|
-| mUSDT approval | `PENDING — paste hash after test run` | ⏳ |
-| TTRS approval | `PENDING — paste hash after test run` | ⏳ |
-| `buyTTRS()` | `PENDING — paste hash after test run` | ⏳ |
-| `sellTTRS()` | `PENDING — paste hash after test run` | ⏳ |
+| mUSDT approval | `PENDING — run the flow, then paste from the dashboard's Proof Block` | ⏳ |
+| TTRS approval | `PENDING — run the flow, then paste from the dashboard's Proof Block` | ⏳ |
+| `buyTTRS()` | `PENDING — run the flow, then paste from the dashboard's Proof Block` | ⏳ |
+| `sellTTRS()` | `PENDING — run the flow, then paste from the dashboard's Proof Block` | ⏳ |
 
 Expected balance changes once the above are filled in:
 
 **After Buy 10 TTRS:** user mUSDT −10, user TTRS +10, TSC mUSDT reserve +10, TSC TTRS reserve −10
 **After Sell 10 TTRS:** user TTRS −10, user mUSDT +9, TSC TTRS reserve +10, TSC mUSDT reserve −9
 
-_This section is the only part of the repo still pending — it needs to be
-filled in by whoever runs the flow with a live, funded wallet, since it
-requires signing real MetaMask transactions._
+_This is the only part of the repo still pending — it needs a live, funded
+wallet to actually run the flow, since real hashes can only come from real
+signed transactions._
 
 ---
 

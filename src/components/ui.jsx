@@ -1,10 +1,12 @@
 export function StatusBadge({ status }) {
   const styles = {
+    preparing: "bg-slate-100 text-slate-600 border-slate-300",
     pending: "bg-warn-50 text-warn-700 border-warn-500/30",
     confirmed: "bg-ok-50 text-ok-700 border-ok-500/30",
     failed: "bg-danger-50 text-danger-700 border-danger-500/30",
   };
   const dot = {
+    preparing: "bg-slate-400 animate-pulse",
     pending: "bg-warn-500 animate-pulse",
     confirmed: "bg-ok-500",
     failed: "bg-danger-500",

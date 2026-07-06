@@ -5,7 +5,7 @@ export default function TransactionLog({ transactions }) {
   return (
     <Card
       title="6. Transaction Log"
-      subtitle="Every approval, buy and sell — newest first"
+      subtitle="Every attempt — approvals, buys, sells, and failures — newest first"
       className="lg:col-span-2"
     >
       {transactions.length === 0 ? (
@@ -18,7 +18,13 @@ export default function TransactionLog({ transactions }) {
                 <span className="text-sm font-medium text-slate-800">{tx.label}</span>
                 <StatusBadge status={tx.status} />
               </div>
-              <HashChip hash={tx.hash} />
+              {tx.hash ? (
+                <HashChip hash={tx.hash} />
+              ) : (
+                <p className="text-xs text-slate-400 italic">
+                  {tx.status === "preparing" ? "Waiting for wallet confirmation…" : "No hash — never reached the wallet."}
+                </p>
+              )}
               {tx.error && <p className="text-xs text-danger-700">{tx.error}</p>}
             </li>
           ))}
