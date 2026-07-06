@@ -6,7 +6,7 @@ export const CHAIN_ID = Number(import.meta.env.VITE_CHAIN_ID || 97);
 export const CHAIN_ID_HEX = import.meta.env.VITE_CHAIN_ID_HEX || "0x61";
 export const CHAIN_NAME = import.meta.env.VITE_CHAIN_NAME || "BNB Smart Chain Testnet";
 export const RPC_URL = import.meta.env.VITE_RPC_URL || "https://data-seed-prebsc-1-s1.binance.org:8545/";
-export const EXPLORER_URL = import.meta.env.VITE_EXPLORER_URL || "https://testnet.bscscan.com";
+export const EXPLORER_URL = import.meta.env.VITE_BSCSCAN_TESTNET_URL || "https://testnet.bscscan.com";
 
 export const ADD_CHAIN_PARAMS = {
   chainId: CHAIN_ID_HEX,
